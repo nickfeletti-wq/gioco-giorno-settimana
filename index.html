@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Indovina il giorno della settimana!</title>
+
+<style>
+:root{
+  --bg1:#0ea5e9;
+  --bg2:#22c55e;
+  --card:#ffffff;
+  --text:#0f172a;
+  --muted:#64748b;
+  --border:rgba(15,23,42,.10);
+  --shadow:0 18px 50px rgba(2,6,23,.18);
+  --shadowSoft:0 10px 25px rgba(2,6,23,.12);
+  --radius:18px;
+
+  --primary:#d08a1f;
+  --primary2:#f0b35b;
+
+  --purple1:#8b5cf6;
+  --purple2:#c4b5fd;
+
+  --danger:#d63838;
+  --success:#26af58;
+}
+
+*{ box-sizing:border-box; }
+
+body{
+  margin:0;
+  min-height:100vh;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  color:var(--text);
+
+  background-image: url("sfondo.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+
+  padding: 28px 14px;
+  text-align:center;
+}
+
+
+
+.hidden{ display:none; }
+
+/* BOX: bianca dentro, colore solo “intorno” */
+.box{
+  background: #e4d3b4;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 20px;
+  border-radius: var(--radius);
+  border: 4px solid rgba(15,23,42,.10);  /* bordo neutro di base */
+  box-shadow: 0 25px 70px rgba(0,0,0,.35); /* ombra neutra, NON colorata */
+}
+
+.box.orange{
+ background: #dcc497; /* forza il bianco */
+  border-color: rgba(208,138,31,.55); /* arancio morbido */
+}
+
+.box.purple{
+  background: #dcc497; /* forza il bianco */
+  border-color: rgba(139,92,246,.55); /* viola morbido */
+}
+
+
+
+
+h2{
+  margin: 6px 0 4px;
+  font-size: 24px;
+  letter-spacing: .2px;
+}
+
+h3{
+  margin: 18px 0 10px;
+  font-size: 16px;
+  color: var(--muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+#date{
+  margin: 12px 0 14px;
+  font-size: 20px;
+  font-weight: 800;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: #ffffff;
+}
+
+#result{
+  margin-top: 12px;
+  font-weight: 800;
+}
+
+/* Pulsanti moderni */
+button{
+  width: 100%;
+  padding: 12px 12px;
+  margin: 8px 0;
+  font-size: 16px;
+  font-weight: 800;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: #ffffff;
+  color: var(--text);
+  cursor: pointer;
+  box-shadow: var(--shadowSoft);
+  transition: transform .08s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease;
+  user-select: none;
+}
+
+button:hover{
+  transform: translateY(-1px);
+  background: #ffffff;
+  border-color: rgba(15,23,42,.18);
+}
+
+button:active{
+  transform: translateY(0px) scale(.99);
+  box-shadow: 0 8px 18px rgba(2,6,23,.10);
+}
+
+button.primary{
+  border: 3px solid rgba(208,138,31,.70);
+  background: #ffffff;
+  box-shadow: var(--shadowSoft);
+}
+
+button.secondary{
+  border: 3px solid rgba(139,92,246,.65);
+  background: #ffffff;
+  box-shadow: var(--shadowSoft);
+}
+
+
+/* Card statistiche */
+#globalStats{
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 14px;
+  margin: 12px 0 10px;
+  text-align: left;
+  box-shadow: 0 10px 25px rgba(2,6,23,.08);
+}
+
+#globalStats strong{
+  font-size: 28px;
+  display:inline-block;
+  margin-bottom: 2px;
+}
+
+/* Storico lista */
+#history{
+  text-align:left;
+  padding-left:0;
+  margin: 10px 0 0;
+}
+
+#history li{
+  border-radius: 14px;
+  margin: 8px 0;
+  border: 1px solid var(--border);
+  background: #ffffff;
+  box-shadow: 0 8px 18px rgba(2,6,23,.08);
+}
+
+/* Animazioni corretto/sbagliato */
+.correct{
+  background-color: var(--success);
+  color: white;
+  border-color: rgba(0,0,0,.08);
+  animation: flashCorrect 0.6s ease;
+}
+
+.wrong{
+  background-color: var(--danger);
+  color: white;
+  border-color: rgba(0,0,0,.08);
+  animation: flashWrong 0.6s ease;
+}
+
+@keyframes flashCorrect{
+  0%{ transform: scale(1); }
+  50%{ transform: scale(1.05); }
+  100%{ transform: scale(1); }
+}
+
+@keyframes flashWrong{
+  0%{ transform: scale(1); }
+  50%{ transform: scale(0.96); }
+  100%{ transform: scale(1); }
+}
+
+/* Reveal giorni corretti nel resoconto */
+.reveal{
+  overflow:hidden;
+  max-height:0;
+  opacity:0;
+  transform: translateY(-4px);
+  transition: all .35s ease;
+  font-style: italic;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+.reveal.show{
+  max-height: 48px;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Mobile friendly */
+@media (max-width: 520px){
+  body{
+    padding: 14px 10px;
+  }
+
+  .box{
+    max-width: 100%;
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  h2{
+    font-size: 20px;
+  }
+
+  #date{
+    font-size: 18px;
+    padding: 10px;
+  }
+
+  button{
+    padding: 14px 12px;
+    font-size: 16px;
+    border-radius: 14px;
+    margin: 10px 0;
+  }
+
+  /* lista storico più compatta */
+  #history li{
+    padding: 10px !important;
+  }
+
+  /* evita che il testo “scappi” */
+  #globalStats{
+    font-size: 14px;
+  }
+}
+
+#buttons{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+#buttons button{
+  width: 100%;
+  margin: 0; /* il gap gestisce lo spazio */
+}
+
+@media (min-width: 700px){
+  #buttons{
+    grid-template-columns: 1fr;
+  }
+}
+
+</style>
+
+
+</head>
+
+<body>
+
+<!-- MENU -->
+<div class="box orange" id="menu">
+    <h2>Indovina il giorno della settimana!</h2>
+    <button class="primary" onclick="startFree()">🎲 Gioco libero</button>
+    <button class="primary" onclick="showQuick()">⚡ Partita rapida</button>
+    <h3>Ripassa errori</h3>
+<button class="secondary" onclick="startErrorMatch(5)">🧠 5 errori</button>
+<button class="secondary" onclick="startErrorMatch(10)">🧠 10 errori</button>
+
+
+
+<h3>Statistiche totali</h3>
+
+<div id="globalStats" style="
+    background:#f7f7f7;
+    padding:15px;
+    border-radius:8px;
+    margin-bottom:15px;
+    font-size:15px;
+">
+    Caricamento statistiche...
+</div>
+
+<h3>Storico partite</h3>
+<ul id="history" style="text-align:left; padding-left:0;"></ul>
+
+<button onclick="deleteSelected()" style="margin-top:10px">
+    🗑 Elimina partite selezionate
+</button>
+
+</div>
+
+<!-- SCELTA PARTITA -->
+<div class="box hidden" id="quickMenu">
+    <h3>Partita rapida</h3>
+    <button onclick="startMatch(5)">5 date</button>
+<button onclick="startMatch(10)">10 date</button>
+<button onclick="startMatch(15)">15 date</button>
+<button onclick="startMatch(20)">20 date</button>
+    <button onclick="goMenu()">⬅ Indietro</button>
+</div>
+
+<!-- GIOCO -->
+<div class="box hidden" id="game">
+    <h3 id="title"></h3>
+    <div id="date"></div>
+
+    <div id="buttons"></div>
+
+    <p id="result"></p>
+    <button id="backToMenuBtn" onclick="goMenu()">⬅ Torna al menù</button>
+
+</div>
+
+<!-- RISULTATO -->
+<div class="box purple hidden" id="summary">
+    <h3>Risultato partita</h3>
+    <p id="summaryText"></p>
+    <button onclick="goMenu()">Torna al menu</button>
+</div>
+
+<script>
+const giorni = ["Domenica","Lunedì","Martedì","Mercoledì","Giovedì","Venerdì","Sabato"];
+let correctDay = "";
+let mode = "";
+let total = 0;
+let answered = 0;
+let correct = 0;
+let errors = [];
+let matchType = "normal";   // "normal" | "errors"
+let errorPool = [];         // array di errori pescati per la partita di ripasso
+let currentDateText = "";   // la data mostrata (serve per salvarla in modo pulito)
+
+
+function randomDate() {
+    const start = new Date(1582,9,15);
+    const end = new Date(2199,11,31);
+    return new Date(start.getTime() + Math.random()*(end-start));
+}
+
+function showGame() {
+    document.getElementById("menu").classList.add("hidden");
+    document.getElementById("quickMenu").classList.add("hidden");
+    document.getElementById("summary").classList.add("hidden");
+    document.getElementById("game").classList.remove("hidden");
+
+    document.getElementById("buttons").innerHTML = giorni.map(g =>
+        `<button onclick="answer('${g}', this)">${g}</button>`
+    ).join("");
+
+    newQuestion();
+}
+
+function newQuestion() {
+    // se stiamo ripassando errori, le domande arrivano dal pool
+    if (matchType === "errors") {
+        const e = errorPool[answered]; // answered è quante risposte ho già dato
+        currentDateText = e.date;
+        correctDay = e.correctDay;
+        document.getElementById("date").innerText = currentDateText;
+       document.getElementById("result").innerText = "";
+document.querySelectorAll("#buttons button").forEach(b => b.classList.remove("correct", "wrong"));
+return;
+    }
+
+    // altrimenti: domanda random classica
+    const d = randomDate();
+    correctDay = giorni[d.getDay()];
+    currentDateText = d.toLocaleDateString("it-IT", { day:"numeric", month:"long", year:"numeric" });
+
+    document.getElementById("date").innerText = currentDateText;
+    document.getElementById("result").innerText = "";
+    document.querySelectorAll("#buttons button").forEach(b => b.classList.remove("correct", "wrong"));
+
+}
+
+
+function answer(day, btn) {
+    answered++;
+
+    const isCorrect = (day === correctDay);
+
+    // --- Gestione punteggio e banca errori ---
+    if (isCorrect) {
+        correct++;
+
+        // Se sto ripassando errori e lo indovino -> lo elimino dalla banca
+        if (mode === "match" && matchType === "errors") {
+            removeFromErrorBank(currentDateText);
+        }
+    } else {
+        // Sbagliato in partita rapida normale -> aggiungo alla banca errori
+        if (mode === "match" && matchType === "normal") {
+            addToErrorBank(currentDateText, correctDay);
+        }
+
+        // Sbagliato in partita di ripasso -> resta in banca (non faccio nulla)
+
+        // In ogni caso, se sto giocando una "match" salvo l’errore per il resoconto finale
+        if (mode === "match") {
+            errors.push({
+                date: currentDateText,
+                correctDay: correctDay
+            });
+        }
+    }
+
+    // --- MODALITÀ GIOCO LIBERO (feedback e colori) ---
+    if (mode === "free") {
+        document.querySelectorAll("#buttons button")
+            .forEach(b => b.classList.remove("correct", "wrong"));
+
+        if (isCorrect) {
+            btn.classList.add("correct");
+            document.getElementById("result").innerText = "✅ Corretto!";
+            setTimeout(newQuestion, 700);
+        } else {
+            btn.classList.add("wrong");
+            document.getElementById("result").innerText = "❌ Sbagliato, riprova!";
+        }
+        return;
+    }
+
+    // --- MODALITÀ PARTITA (sia normal che errors): nessun feedback durante gioco ---
+    if (mode === "match") {
+        if (answered >= total) {
+            endMatch();
+        } else {
+            newQuestion();
+        }
+    }
+}
+
+
+
+function startFree() {
+    mode = "free";
+    showGame();
+}
+
+function showQuick() {
+    document.getElementById("menu").classList.add("hidden");
+    document.getElementById("quickMenu").classList.remove("hidden");
+}
+
+function startMatch(n) {
+    mode = "match";
+    total = n;
+    answered = 0;
+    correct = 0;
+    errors = [];
+
+    showGame();
+}
+
+function endMatch() {
+    document.getElementById("game").classList.add("hidden");
+    document.getElementById("summary").classList.remove("hidden");
+
+    const percent = Math.round((correct / total) * 100);
+
+    let html = `Hai risposto correttamente al <strong>${percent}%</strong> (${correct}/${total})`;
+
+    if (errors.length > 0) {
+        html += `<h4>Date sbagliate</h4><ul>`;
+errors.forEach((e, i) => {
+    html += `
+    <li>
+        Il ${e.date} era un
+        <span style="cursor:pointer; color:#007AFF"
+              onclick="this.nextElementSibling.classList.toggle('show')">
+            (...)
+        </span>
+        <div class="reveal">
+            ${e.correctDay}
+        </div>
+    </li>`;
+});
+
+        html += `</ul>`;
+    } else {
+        html += `<p>🎉 Nessun errore!</p>`;
+    }
+
+    document.getElementById("summaryText").innerHTML = html;
+
+    saveHistory(total, percent);
+    loadHistory();
+
+    matchType = "normal";
+
+}
+
+
+function saveHistory(q, p) {
+    const h = JSON.parse(localStorage.getItem("history") || "[]");
+
+    h.unshift({
+        id: Date.now(),
+        date: new Date().toLocaleString(),
+        q: q,
+        p: p,
+        type: matchType // "normal" oppure "errors"
+    });
+
+    localStorage.setItem("history", JSON.stringify(h));
+}
+
+
+function loadErrorBank() {
+    return JSON.parse(localStorage.getItem("errorBank") || "{}");
+}
+
+function saveErrorBank(bank) {
+    localStorage.setItem("errorBank", JSON.stringify(bank));
+}
+
+// Aggiunge/aggiorna un errore nella banca (quando sbagli in PARTITA RAPIDA normale)
+function addToErrorBank(dateText, correctDay) {
+    const bank = loadErrorBank();
+    const key = dateText; // usiamo la data testuale come chiave
+    if (!bank[key]) {
+        bank[key] = { correctDay: correctDay, wrong: 1, last: Date.now() };
+    } else {
+        bank[key].correctDay = correctDay; // sicurezza
+        bank[key].wrong = (bank[key].wrong || 0) + 1;
+        bank[key].last = Date.now();
+    }
+    saveErrorBank(bank);
+}
+
+// Rimuove un errore dalla banca (quando lo indovini in RIPASSO ERRORI)
+function removeFromErrorBank(dateText) {
+    const bank = loadErrorBank();
+    delete bank[dateText];
+    saveErrorBank(bank);
+}
+
+
+function loadHistory() {
+    const h = JSON.parse(localStorage.getItem("history") || "[]");
+    const ul = document.getElementById("history");
+    const stats = document.getElementById("globalStats");
+
+    ul.innerHTML = "";
+
+    let totalQuestions = 0;
+    let totalCorrect = 0;
+
+    h.forEach(e => {
+        totalQuestions += e.q;
+        totalCorrect += Math.round((e.p / 100) * e.q);
+
+        const isErrorMatch = (e.type === "errors");
+
+        ul.innerHTML += `
+        <li style="
+            list-style:none;
+            padding:8px;
+            border-bottom:1px solid #ddd;
+            display:flex;
+            align-items:center;
+            gap:10px;
+            ${isErrorMatch ? "font-style:italic; background:#f0f7ff;" : ""}
+        ">
+            <input type="checkbox" data-id="${e.id}">
+            <span>
+                <strong>${e.p}%</strong> – ${e.q} domande
+                ${isErrorMatch ? " – <em>partita di errori</em>" : ""}
+                <br><small>${e.date}</small>
+            </span>
+        </li>`;
+    });
+
+    if (totalQuestions === 0) {
+        stats.innerHTML = "Nessuna partita giocata";
+    } else {
+        const percent = Math.round((totalCorrect / totalQuestions) * 100);
+        stats.innerHTML = `
+            <strong>${percent}%</strong><br>
+            Risposte corrette: ${totalCorrect}/${totalQuestions}
+        `;
+    }
+}
+
+
+
+function goMenu() {
+    document.getElementById("menu").classList.remove("hidden");
+    document.getElementById("game").classList.add("hidden");
+    document.getElementById("quickMenu").classList.add("hidden");
+    document.getElementById("summary").classList.add("hidden");
+}
+
+function startErrorMatch(n) {
+    const bank = loadErrorBank();
+    const keys = Object.keys(bank);
+
+    if (keys.length === 0) {
+        alert("Non hai errori da ripassare (per ora)!");
+        return;
+    }
+
+    // trasformo bank in array
+    const pool = keys.map(k => ({
+        date: k,
+        correctDay: bank[k].correctDay,
+        wrong: bank[k].wrong || 0,
+        last: bank[k].last || 0
+    }));
+
+    // mix semplice (poi possiamo farlo più “intelligente”)
+    pool.sort(() => Math.random() - 0.5);
+
+    errorPool = pool.slice(0, Math.min(n, pool.length));
+
+    mode = "match";
+    matchType = "errors";
+    total = errorPool.length;
+    answered = 0;
+    correct = 0;
+    errors = []; // qui continueremo a salvare gli errori fatti in questa partita di ripasso
+
+    showGame();
+    newQuestion();
+}
+
+
+loadHistory();
+
+function deleteSelected() {
+    let h = JSON.parse(localStorage.getItem("history") || "[]");
+
+    const checked = document.querySelectorAll("#history input:checked");
+    const idsToDelete = Array.from(checked).map(c => Number(c.dataset.id));
+
+    if (idsToDelete.length === 0) return;
+
+    h = h.filter(e => !idsToDelete.includes(e.id));
+    localStorage.setItem("history", JSON.stringify(h));
+
+    loadHistory();
+}
+
+</script>
+
+</body>
+</html>
