@@ -6,7 +6,21 @@
 
 <title>Indovina il giorno della settimana!</title>
 
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet">
+
 <style>
+
+@font-face{
+  font-family: "Zepter Pro Web";
+  src: url("fonts/Zepter_Pro.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+
 :root{
   --bg1:#0ea5e9;
   --bg2:#22c55e;
@@ -81,13 +95,19 @@ h2{
 }
 
 h3{
+  font-family: "Playfair Display", serif;
+  font-weight: 900;
+
+  /* effetto “SC” */
+  font-variant-caps: all-small-caps;
+  letter-spacing: .10em;
+
   margin: 18px 0 10px;
-  font-size: 16px;
-  color: var(--muted);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .08em;
+  font-size: 20px;
+  color: rgba(31, 35, 57, 0.85);
+  line-height: 1.3;
 }
+
 
 #date{
   margin: 12px 0 14px;
@@ -238,6 +258,10 @@ button.secondary{
     font-size: 20px;
   }
 
+  h3{
+  font-size: 22px;
+}
+
   #date{
     font-size: 18px;
     padding: 10px;
@@ -278,6 +302,14 @@ button.secondary{
   }
 }
 
+#dailyChart{
+  background: #ffffff;
+  border: 1px solid rgba(15,23,42,.10);
+  border-radius: 14px;
+  box-shadow: 0 8px 18px rgba(2,6,23,.08);
+}
+
+
 </style>
 
 
@@ -293,6 +325,23 @@ button.secondary{
     <h3>Ripassa errori</h3>
 <button class="secondary" onclick="startErrorMatch(5)">🧠 5 errori</button>
 <button class="secondary" onclick="startErrorMatch(10)">🧠 10 errori</button>
+
+<h3>Streak</h3>
+<div id="streakBox" style="
+  background:#ffffff;
+  border:1px solid rgba(15,23,42,.10);
+  border-radius:16px;
+  padding:14px;
+  text-align:left;
+  box-shadow: 0 10px 25px rgba(2,6,23,.08);
+">
+  <strong id="streakNow" style="font-size:22px;">0</strong> streak attuale<br>
+  <strong id="streakBest" style="font-size:22px;">0</strong> record personale
+</div>
+
+<h3>Andamento giornaliero</h3>
+<canvas id="dailyChart" height="180" style="width:100%; display:block;"></canvas>
+
 
 
 
@@ -406,6 +455,7 @@ function answer(day, btn) {
     answered++;
 
     const isCorrect = (day === correctDay);
+    onAnswerForStreak(isCorrect);
 
     // --- Gestione punteggio e banca errori ---
     if (isCorrect) {
@@ -524,14 +574,16 @@ function saveHistory(q, p) {
 
     h.unshift({
         id: Date.now(),
+        ts: Date.now(),                 // 👈 nuovo: timestamp
         date: new Date().toLocaleString(),
         q: q,
         p: p,
-        type: matchType // "normal" oppure "errors"
+        type: matchType
     });
 
     localStorage.setItem("history", JSON.stringify(h));
 }
+
 
 
 function loadErrorBank() {
@@ -563,6 +615,41 @@ function removeFromErrorBank(dateText) {
     saveErrorBank(bank);
 }
 
+function loadStreak() {
+  const now = Number(localStorage.getItem("streakNow") || "0");
+  const best = Number(localStorage.getItem("streakBest") || "0");
+  return { now, best };
+}
+
+function saveStreak(now, best) {
+  localStorage.setItem("streakNow", String(now));
+  localStorage.setItem("streakBest", String(best));
+}
+
+function updateStreakUI() {
+  const nowEl = document.getElementById("streakNow");
+  const bestEl = document.getElementById("streakBest");
+  if (!nowEl || !bestEl) return;
+
+  const { now, best } = loadStreak();
+  nowEl.innerText = now;
+  bestEl.innerText = best;
+}
+
+// chiama questa quando l’utente risponde
+function onAnswerForStreak(isCorrect) {
+  let { now, best } = loadStreak();
+
+  if (isCorrect) {
+    now += 1;
+    if (now > best) best = now;
+  } else {
+    now = 0;
+  }
+
+  saveStreak(now, best);
+  updateStreakUI();
+}
 
 function loadHistory() {
     const h = JSON.parse(localStorage.getItem("history") || "[]");
@@ -608,7 +695,162 @@ function loadHistory() {
             Risposte corrette: ${totalCorrect}/${totalQuestions}
         `;
     }
+    drawDailyChart();
 }
+
+
+function toDayKey(ts) {
+    const d = new Date(ts);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`; // es. 2026-01-28
+}
+
+function dayLabel(dayKey) {
+    // dayKey = "YYYY-MM-DD"
+    const [y, m, d] = dayKey.split("-").map(Number);
+    const dt = new Date(y, m - 1, d);
+    return dt.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" });
+}
+
+function computeDailyStats() {
+    const h = JSON.parse(localStorage.getItem("history") || "[]");
+    const map = new Map();
+
+    for (const e of h) {
+        // timestamp: nuovo e.ts, fallback su e.id, altrimenti prova a parse date
+        let ts = e.ts || e.id;
+        if (!ts && e.date) {
+            const parsed = new Date(e.date).getTime();
+            if (!Number.isNaN(parsed)) ts = parsed;
+        }
+        if (!ts) continue;
+
+        const key = toDayKey(ts);
+        const correct = Math.round((e.p / 100) * e.q);
+        const total = e.q;
+
+        if (!map.has(key)) map.set(key, { correct: 0, total: 0 });
+        map.get(key).correct += correct;
+        map.get(key).total += total;
+    }
+
+    // ordina per giorno crescente e prendi ultimi 14 giorni giocati
+    const keys = Array.from(map.keys()).sort();
+    const last = keys.slice(Math.max(0, keys.length - 14));
+
+    return last.map(k => {
+        const v = map.get(k);
+        const pct = v.total ? Math.round((v.correct / v.total) * 100) : 0;
+        return { dayKey: k, label: dayLabel(k), pct, correct: v.correct, total: v.total };
+    });
+}
+
+function drawDailyChart() {
+    const canvas = document.getElementById("dailyChart");
+    if (!canvas) return;
+
+    const data = computeDailyStats();
+    const ctx = canvas.getContext("2d");
+
+    const cssWidth = canvas.clientWidth || 520;
+    const cssHeight = canvas.height || 180; // un po’ più alta aiuta
+
+    // retina friendly
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.floor(cssWidth * dpr);
+    canvas.height = Math.floor(cssHeight * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    ctx.clearRect(0, 0, cssWidth, cssHeight);
+
+    // vuoto
+    if (data.length === 0) {
+        ctx.font = "14px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+        ctx.fillStyle = "rgba(15,23,42,.55)";
+        ctx.fillText("Nessun dato (gioca almeno una partita).", 12, 28);
+        return;
+    }
+
+    // area disegno
+    const padding = { l: 40, r: 10, t: 12, b: 34 };
+    const w = cssWidth - padding.l - padding.r;
+    const h = cssHeight - padding.t - padding.b;
+
+    // asse Y 0..100
+    ctx.strokeStyle = "rgba(15,23,42,.10)";
+    ctx.lineWidth = 1;
+
+    // griglia + etichette (0,25,50,75,100)
+    ctx.font = "12px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+    ctx.fillStyle = "rgba(15,23,42,.55)";
+
+    for (let i = 0; i <= 4; i++) {
+        const pct = 100 - i * 25;
+        const y = padding.t + (h * i) / 4;
+
+        // linea
+        ctx.beginPath();
+        ctx.moveTo(padding.l, y);
+        ctx.lineTo(padding.l + w, y);
+        ctx.stroke();
+
+        // label %
+        const label = `${pct}%`;
+        ctx.fillText(label, 6, y + 4);
+    }
+
+    // barre verticali
+    const n = data.length;
+    const gap = 10;
+    const barW = Math.max(10, (w - gap * (n - 1)) / n);
+
+    for (let i = 0; i < n; i++) {
+        const x = padding.l + i * (barW + gap);
+        const pct = data[i].pct;
+        const barH = Math.round((pct / 100) * h);
+        const y = padding.t + (h - barH);
+
+        // colore “carino” per fasce
+        let top = "rgba(139,92,246,.85)";
+        let bottom = "rgba(208,138,31,.85)";
+        if (pct >= 75) { top = "rgba(38,175,88,.90)"; bottom = "rgba(38,175,88,.55)"; }
+        else if (pct <= 40) { top = "rgba(214,56,56,.90)"; bottom = "rgba(214,56,56,.55)"; }
+
+        const grad = ctx.createLinearGradient(0, y, 0, y + barH);
+        grad.addColorStop(0, top);
+        grad.addColorStop(1, bottom);
+
+        ctx.fillStyle = grad;
+        roundRect(ctx, x, y, barW, barH, 8);
+        ctx.fill();
+
+        // % sopra la barra
+        ctx.fillStyle = "rgba(15,23,42,.75)";
+        ctx.fillText(`${pct}%`, x + 2, Math.max(padding.t + 12, y - 6));
+
+        // giorni sull’asse X
+        ctx.fillStyle = "rgba(15,23,42,.55)";
+        if (n <= 9 || i % 2 === 0) {
+            ctx.fillText(data[i].label, x, padding.t + h + 22);
+        }
+    }
+}
+
+
+// helper rettangolo arrotondato
+function roundRect(ctx, x, y, w, h, r) {
+    const radius = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.arcTo(x + w, y, x + w, y + h, radius);
+    ctx.arcTo(x + w, y + h, x, y + h, radius);
+    ctx.arcTo(x, y + h, x, y, radius);
+    ctx.arcTo(x, y, x + w, y, radius);
+    ctx.closePath();
+}
+
 
 
 
@@ -617,6 +859,8 @@ function goMenu() {
     document.getElementById("game").classList.add("hidden");
     document.getElementById("quickMenu").classList.add("hidden");
     document.getElementById("summary").classList.add("hidden");
+
+    updateStreakUI();
 }
 
 function startErrorMatch(n) {
@@ -668,6 +912,11 @@ function deleteSelected() {
 
     loadHistory();
 }
+
+loadHistory();
+drawDailyChart();
+updateStreakUI();
+window.addEventListener("resize", () => drawDailyChart());
 
 </script>
 
