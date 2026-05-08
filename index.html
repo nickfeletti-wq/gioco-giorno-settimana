@@ -303,12 +303,16 @@ button.secondary{
 }
 
 #dailyChart{
+  display:block;
+  width:100%;
+  height:180px;
+  max-height:180px;
+
   background: #ffffff;
   border: 1px solid rgba(15,23,42,.10);
   border-radius: 14px;
   box-shadow: 0 8px 18px rgba(2,6,23,.08);
 }
-
 
 </style>
 
@@ -754,13 +758,18 @@ function drawDailyChart() {
     const data = computeDailyStats();
     const ctx = canvas.getContext("2d");
 
-    const cssWidth = canvas.clientWidth || 520;
-    const cssHeight = canvas.height || 180; // un po’ più alta aiuta
+    // ✅ usa dimensioni REALI del layout (fix iPhone “altezza infinita”)
+    const rect = canvas.getBoundingClientRect();
+    const cssWidth = Math.round(rect.width) || 520;
+    const cssHeight = Math.round(rect.height) || 180;
 
     // retina friendly
     const dpr = window.devicePixelRatio || 1;
     canvas.width = Math.floor(cssWidth * dpr);
     canvas.height = Math.floor(cssHeight * dpr);
+
+    // reset transform (Safari può accumulare)
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     ctx.clearRect(0, 0, cssWidth, cssHeight);
@@ -790,15 +799,12 @@ function drawDailyChart() {
         const pct = 100 - i * 25;
         const y = padding.t + (h * i) / 4;
 
-        // linea
         ctx.beginPath();
         ctx.moveTo(padding.l, y);
         ctx.lineTo(padding.l + w, y);
         ctx.stroke();
 
-        // label %
-        const label = `${pct}%`;
-        ctx.fillText(label, 6, y + 4);
+        ctx.fillText(`${pct}%`, 6, y + 4);
     }
 
     // barre verticali
@@ -812,7 +818,7 @@ function drawDailyChart() {
         const barH = Math.round((pct / 100) * h);
         const y = padding.t + (h - barH);
 
-        // colore “carino” per fasce
+        // colore per fasce
         let top = "rgba(139,92,246,.85)";
         let bottom = "rgba(208,138,31,.85)";
         if (pct >= 75) { top = "rgba(38,175,88,.90)"; bottom = "rgba(38,175,88,.55)"; }
@@ -826,18 +832,17 @@ function drawDailyChart() {
         roundRect(ctx, x, y, barW, barH, 8);
         ctx.fill();
 
-        // % sopra la barra
+        // % sopra
         ctx.fillStyle = "rgba(15,23,42,.75)";
         ctx.fillText(`${pct}%`, x + 2, Math.max(padding.t + 12, y - 6));
 
-        // giorni sull’asse X
+        // label giorni sotto
         ctx.fillStyle = "rgba(15,23,42,.55)";
         if (n <= 9 || i % 2 === 0) {
             ctx.fillText(data[i].label, x, padding.t + h + 22);
         }
     }
 }
-
 
 // helper rettangolo arrotondato
 function roundRect(ctx, x, y, w, h, r) {
